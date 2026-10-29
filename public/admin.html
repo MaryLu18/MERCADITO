@@ -1,0 +1,218 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow">
+<title>Panel</title>
+<style>
+:root{color-scheme:light dark;--bg:#F6F8F7;--surface:#fff;--ink:#14201B;--muted:#5B6B64;--line:#E1E8E4;--brand:#0E8A5F;--brand-ink:#fff;--soft:#E3F3EB;--danger:#C2410C}
+@media(prefers-color-scheme:dark){:root{--bg:#0E1512;--surface:#16201B;--ink:#E8F1EC;--muted:#93A49B;--line:#26342D;--brand:#2FC48A;--brand-ink:#06251A;--soft:#173126;--danger:#F08A5D}}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.5 system-ui,-apple-system,'Segoe UI',sans-serif}
+button,input,select,textarea{font:inherit;color:inherit}button{cursor:pointer}
+h2{margin:0 0 12px;font-size:1.3rem}
+.top{position:sticky;top:0;z-index:5;background:var(--surface);border-bottom:1px solid var(--line);display:flex;justify-content:space-between;align-items:center;gap:8px;padding:12px 20px;flex-wrap:wrap}
+.top span{display:flex;gap:8px}
+.wrap{max-width:900px;margin:0 auto;padding:20px}
+.btn{border:1px solid var(--line);background:var(--surface);border-radius:10px;padding:8px 14px;font-weight:500;text-decoration:none;color:var(--ink);display:inline-block}
+.btn:hover{border-color:var(--brand)}
+.btn.primary{background:var(--brand);color:var(--brand-ink);border-color:var(--brand);font-weight:700}
+#tabs{display:flex;gap:8px;flex-wrap:wrap;padding:14px 20px 0;max-width:900px;margin:0 auto}
+.tab{border:1px solid var(--line);background:var(--surface);border-radius:99px;padding:6px 16px}
+.tab[aria-pressed="true"]{background:var(--brand);color:var(--brand-ink);border-color:var(--brand);font-weight:700}
+.bar2{display:flex;justify-content:space-between;align-items:center;margin-bottom:12px}
+.row{display:flex;align-items:center;gap:10px;background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:10px;margin-bottom:8px;flex-wrap:wrap}
+.grow{flex:1;min-width:140px}
+.th{width:56px;height:56px;border-radius:10px;object-fit:cover;background:var(--soft);display:grid;place-items:center;font-size:1.5rem;flex:none}
+.meta{color:var(--muted);font-size:.9rem}
+.err{color:var(--danger);font-size:.9rem;min-height:1.2em}
+label{display:grid;gap:4px;font-weight:500;font-size:.92rem;margin-bottom:10px}
+input,textarea,select{padding:9px 12px;border:1px solid var(--line);border-radius:10px;background:var(--bg);width:100%}
+.row input[type=number]{width:84px}.row label{margin:0}
+.qr{width:200px;max-width:100%;background:#fff;border:1px solid var(--line);border-radius:12px;margin-bottom:10px}
+.acts{display:flex;gap:8px;flex-wrap:wrap}
+dialog{border:0;border-radius:18px;padding:0;width:min(560px,calc(100% - 24px));background:var(--surface);color:var(--ink);max-height:calc(100% - 24px)}
+dialog::backdrop{background:rgba(8,16,12,.55)}
+.mb{padding:22px}.hd{display:flex;justify-content:space-between;align-items:center;margin-bottom:12px}.hd h2{margin:0}
+.x{border:0;background:var(--bg);width:34px;height:34px;border-radius:50%}
+.two{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.thumbs{display:flex;gap:12px;flex-wrap:wrap;margin-bottom:10px}.thumbs span{position:relative}
+.thumbs img{width:72px;height:56px;object-fit:cover;border-radius:10px}
+.thumbs button{position:absolute;top:-8px;right:-8px;width:24px;height:24px;border:0;border-radius:50%;background:var(--danger);color:#fff;font-size:.7rem}
+#toast{position:fixed;left:50%;bottom:20px;transform:translate(-50%,30px);background:var(--ink);color:var(--bg);padding:10px 18px;border-radius:99px;opacity:0;transition:.25s;pointer-events:none;z-index:20}
+#toast.on{opacity:1;transform:translate(-50%,0)}
+</style>
+</head>
+<body hidden>
+<header class="top"><b>Panel de administración</b><span><a class="btn" href="/">Ver tienda</a><button class="btn" id="out">Salir</button></span></header>
+<nav id="tabs" aria-label="Secciones"></nav>
+<main class="wrap" id="view"></main>
+<dialog id="dlg"></dialog>
+<div id="toast" role="status"></div>
+<script>
+/* ========== Utilidades ========== */
+const $ = s => document.querySelector(s);
+const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const fmt = n => new Intl.NumberFormat('es-CO', {style:'currency', currency:'COP', maximumFractionDigits:0}).format(n);
+const tok = () => localStorage.getItem('mc_admin') || '';
+let tt; const toast = m => { const t = $('#toast'); t.textContent = m; t.classList.add('on'); clearTimeout(tt); tt = setTimeout(() => t.classList.remove('on'), 2400); };
+function sure(t){   // confirmación en dos clics
+  if(t.dataset.sure) return true;
+  const o = t.textContent; t.dataset.sure = 1; t.textContent = '¿Seguro?';
+  setTimeout(() => { delete t.dataset.sure; t.textContent = o; }, 2500); return false;
+}
+function readImage(file, cb, max = 500){   // reduce la foto y la devuelve como JPEG (data URL)
+  const r = new FileReader();
+  r.onload = () => { const im = new Image(); im.onload = () => {
+    const k = Math.min(1, max/Math.max(im.width, im.height)), c = document.createElement('canvas');
+    c.width = Math.round(im.width*k); c.height = Math.round(im.height*k);
+    const x = c.getContext('2d'); x.fillStyle = '#fff'; x.fillRect(0, 0, c.width, c.height); x.drawImage(im, 0, 0, c.width, c.height);
+    cb(c.toDataURL('image/jpeg', .78)); }; im.src = r.result; };
+  r.readAsDataURL(file);
+}
+async function call(action, extra){
+  const r = await fetch('/api/admin', {method:'POST', headers:{'Content-Type':'application/json', Authorization:'Bearer ' + tok()}, body:JSON.stringify({action, ...extra})});
+  const j = await r.json().catch(() => ({}));
+  if(r.status === 401){ localStorage.removeItem('mc_admin'); location.replace('/'); throw new Error('Sesión vencida'); }
+  if(!r.ok) throw new Error(j.error || 'Error del servidor');
+  return j;
+}
+
+/* ========== Datos ========== */
+const S = {products:[], cfg:{cats:['Electrónica','Ropa','Hogar','Deportes','Libros'], catimg:{}, hero:null, qr:''}};
+let tab = 'prod', imgs = [];
+async function load(){
+  const r = await fetch('/api/shop', {cache:'no-store'}), j = await r.json();
+  if(!r.ok) throw new Error(j.error);
+  S.products = j.products.sort((a,b) => b.id - a.id);
+  if(j.config) S.cfg = {cats:[], catimg:{}, hero:null, qr:'', ...j.config};
+}
+const saveCfg = () => call('saveConfig', {config:S.cfg});
+const saveProd = p => call('saveProduct', {product:p});
+
+/* ========== Vistas ========== */
+const TABS = {prod:'Productos', cat:'Categorías', shop:'Tienda y QR', ord:'Pedidos', usr:'Clientes'};
+const th = p => { const s = (p.imgs && p.imgs[0]) || p.img; return s ? `<img class="th" src="${esc(s)}" alt="">` : '<div class="th">📦</div>'; };
+function prodHTML(){
+  return `<div class="bar2"><h2>Productos (${S.products.length})</h2><button class="btn primary" data-new>＋ Nuevo producto</button></div>` +
+  (S.products.length ? S.products.map(p => `<div class="row">${th(p)}<div class="grow"><b>${esc(p.title)}</b><div class="meta">${esc(p.cat || 'Sin categoría')} – ${fmt(p.price)}</div></div><label class="meta">Stock<input type="number" min="0" value="${p.stock}" data-stock="${p.id}"></label><button class="btn" data-edit="${p.id}">Editar</button><button class="btn" data-del="${p.id}">Eliminar</button></div>`).join('') : '<p class="meta">Aún no hay productos. Crea el primero con el botón de arriba.</p>');
+}
+function catHTML(){
+  const C = S.cfg;
+  return '<h2>Categorías</h2><p class="meta">La imagen aparece en las cajas de la portada (las primeras 8 categorías).</p>' + C.cats.map((c,i) => `<div class="row">${C.catimg[c] ? `<img class="th" src="${esc(C.catimg[c])}" alt="">` : '<div class="th">🖼️</div>'}<input class="grow" value="${esc(c)}" data-ren="${i}" maxlength="40" aria-label="Nombre de la categoría"><label class="btn">Imagen<input type="file" accept="image/*" data-cimg="${i}" hidden></label>${C.catimg[c] ? `<button class="btn" data-cimgdel="${i}">Quitar imagen</button>` : ''}<button class="btn" data-cdel="${i}">Eliminar</button></div>`).join('') + '<div class="row"><input class="grow" id="newCat" maxlength="40" placeholder="Nueva categoría"><button class="btn primary" data-cadd>Añadir</button></div>';
+}
+function shopHTML(){
+  const h = S.cfg.hero || {t:'Lo que ya no usas, es lo que alguien más busca.', d:'Compra y vende electrónica, ropa, cosas para el hogar y más. Publica en menos de un minuto y recibe ofertas hoy.'};
+  return `<h2>Textos de la portada</h2><label>Título<input id="hT" maxlength="90" value="${esc(h.t)}"></label><label>Descripción<textarea id="hD" rows="3" maxlength="220">${esc(h.d)}</textarea></label><button class="btn primary" data-hero>Guardar textos</button>
+  <h2 style="margin-top:28px">Código QR de pago</h2>${S.cfg.qr ? `<img class="qr" src="${esc(S.cfg.qr)}" alt="QR actual">` : '<p class="meta">Aún no has cargado un QR.</p>'}
+  <label>Subir imagen<input type="file" accept="image/*" id="qrF"></label><label>…o pegar una URL<input id="qrU" type="url" placeholder="https://…"></label>
+  <div class="acts"><button class="btn primary" data-qrurl>Usar URL</button>${S.cfg.qr ? '<button class="btn" data-qrdel>Quitar QR</button>' : ''}</div>`;
+}
+const ordHTML = o => '<h2>Pedidos recientes</h2>' + (o.length ? o.map(x => `<div class="row" style="align-items:flex-start"><div class="grow"><b>${esc(x.name)}</b> – ${esc(x.phone)}${x.email ? `<div class="meta">${esc(x.email)}</div>` : ''}<div class="meta">${new Date(x.time).toLocaleString('es-CO')}</div>${x.items.map(i => esc(i.qty + ' × ' + i.title)).join('<br>')}</div><b>${fmt(x.total)}</b></div>`).join('') : '<p class="meta">Aún no hay pedidos.</p>');
+const usrHTML = u => `<h2>Clientes (${u.length})</h2>` + (u.length ? u.map(x => `<div class="row"><div class="grow"><b>${esc(x.name)}</b><div class="meta">${esc(x.email)} – registrado el ${new Date(x.created).toLocaleDateString('es-CO')}</div></div><button class="btn" data-udel="${esc(x.email)}">Eliminar</button></div>`).join('') : '<p class="meta">Aún no hay clientes registrados.</p>');
+
+async function render(){
+  $('#tabs').innerHTML = Object.entries(TABS).map(([k,v]) => `<button class="tab" data-tab="${k}" aria-pressed="${tab === k}">${v}</button>`).join('');
+  const v = $('#view');
+  try{
+    if(tab === 'prod') v.innerHTML = prodHTML();
+    else if(tab === 'cat') v.innerHTML = catHTML();
+    else if(tab === 'shop') v.innerHTML = shopHTML();
+    else if(tab === 'ord'){ v.innerHTML = '<p class="meta">Cargando…</p>'; v.innerHTML = ordHTML((await call('orders')).orders); }
+    else { v.innerHTML = '<p class="meta">Cargando…</p>'; v.innerHTML = usrHTML((await call('users')).users); }
+  }catch(e){ v.innerHTML = '<p class="err">' + esc(e.message) + '</p>'; }
+}
+
+/* ========== Formulario de producto ========== */
+function thumbs(){ $('#thumbs').innerHTML = imgs.map((s,i) => `<span><img src="${esc(s)}" alt=""><button type="button" data-rmimg="${i}" aria-label="Quitar imagen">✕</button></span>`).join(''); }
+function openForm(id){
+  const p = id ? S.products.find(x => x.id === id) : null;
+  imgs = p ? (p.imgs || (p.img ? [p.img] : [])).slice() : [];
+  $('#dlg').innerHTML = `<form class="mb" id="pf"><div class="hd"><h2>${p ? 'Editar producto' : 'Nuevo producto'}</h2><button type="button" class="x" data-x aria-label="Cerrar">✕</button></div>
+  <input type="hidden" name="pid" value="${p ? p.id : ''}">
+  <label>Título<input name="title" maxlength="120" value="${p ? esc(p.title) : ''}" required></label>
+  <div class="two"><label>Precio (COP)<input name="price" type="number" min="0" value="${p ? p.price : ''}" required></label><label>Unidades disponibles<input name="stock" type="number" min="0" value="${p ? p.stock : 1}" required></label></div>
+  <label>Categoría<select name="cat">${S.cfg.cats.map(c => `<option ${p && p.cat === c ? 'selected' : ''}>${esc(c)}</option>`).join('')}<option value="" ${p && !p.cat ? 'selected' : ''}>Sin categoría</option></select></label>
+  <label>Descripción<textarea name="desc" rows="4" maxlength="1000">${p ? esc(p.desc) : ''}</textarea></label>
+  <label>Imágenes (hasta 4, puedes elegir varias)<input type="file" id="pimg" accept="image/*" multiple></label>
+  <label>…o pegar una URL<input name="url" type="url" placeholder="https://…"></label>
+  <div class="thumbs" id="thumbs"></div><div class="err" id="perr"></div><button class="btn primary">Guardar</button></form>`;
+  thumbs(); $('#dlg').showModal();
+}
+
+/* ========== Eventos ========== */
+document.addEventListener('click', async e => {
+  const t = e.target.closest('button'); if(!t) return; const d = t.dataset, C = S.cfg;
+  try{
+    if(d.tab){ tab = d.tab; render(); }
+    else if(t.id === 'out'){ localStorage.removeItem('mc_admin'); location.replace('/'); }
+    else if(d.x !== undefined) $('#dlg').close();
+    else if(d.new !== undefined) openForm();
+    else if(d.edit) openForm(+d.edit);
+    else if(d.del){ if(!sure(t)) return; await call('deleteProduct', {id:+d.del}); await load(); render(); toast('Producto eliminado'); }
+    else if(d.rmimg !== undefined){ imgs.splice(+d.rmimg, 1); thumbs(); }
+    else if(d.cadd !== undefined){
+      const n = $('#newCat').value.trim(); if(!n || C.cats.includes(n)) return toast('Escribe un nombre nuevo');
+      C.cats.push(n); await saveCfg(); render(); toast('Categoría añadida');
+    }
+    else if(d.cdel !== undefined){
+      if(!sure(t)) return; const n = C.cats[+d.cdel];
+      for(const p of S.products.filter(p => p.cat === n)){ p.cat = ''; await saveProd(p); }   // los productos se conservan sin categoría
+      C.cats.splice(+d.cdel, 1); delete C.catimg[n]; await saveCfg(); render(); toast('Categoría eliminada');
+    }
+    else if(d.cimgdel !== undefined){ delete C.catimg[C.cats[+d.cimgdel]]; await saveCfg(); render(); }
+    else if(d.hero !== undefined){ const tt_ = $('#hT').value.trim(); if(!tt_) return toast('El título no puede estar vacío'); C.hero = {t:tt_, d:$('#hD').value.trim()}; await saveCfg(); toast('Textos guardados'); }
+    else if(d.qrurl !== undefined){ C.qr = $('#qrU').value.trim(); await saveCfg(); render(); toast('QR guardado'); }
+    else if(d.qrdel !== undefined){ C.qr = ''; await saveCfg(); render(); toast('QR eliminado'); }
+    else if(d.udel){ if(!sure(t)) return; await call('deleteUser', {email:d.udel}); render(); toast('Cliente eliminado'); }
+  }catch(err){ toast(err.message); }
+});
+document.addEventListener('change', async e => {
+  const el = e.target, d = el.dataset, C = S.cfg;
+  try{
+    if(d.stock){
+      const p = S.products.find(x => x.id === +d.stock); p.stock = Math.max(0, Math.floor(Number(el.value) || 0)); el.value = p.stock;
+      await saveProd(p); toast('Stock actualizado');
+    }else if(d.ren !== undefined){
+      const i = +d.ren, old = C.cats[i], n = el.value.trim();
+      if(!n || C.cats.includes(n)){ el.value = old; return toast('Nombre no válido o repetido'); }
+      C.cats[i] = n; if(C.catimg[old]){ C.catimg[n] = C.catimg[old]; delete C.catimg[old]; }
+      for(const p of S.products.filter(p => p.cat === old)){ p.cat = n; await saveProd(p); }
+      await saveCfg(); toast('Categoría renombrada');
+    }else if(d.cimg !== undefined && el.files[0]){
+      const n = C.cats[+d.cimg];
+      readImage(el.files[0], async img => { C.catimg[n] = img; try{ await saveCfg(); render(); toast('Imagen guardada'); }catch(err){ toast(err.message); } }, 360);
+    }else if(el.id === 'qrF' && el.files[0]){
+      readImage(el.files[0], async img => { C.qr = img; try{ await saveCfg(); render(); toast('QR guardado'); }catch(err){ toast(err.message); } }, 640);
+    }else if(el.id === 'pimg'){
+      const files = [...el.files], room = 4 - imgs.length;
+      if(files.length > room) toast('Máximo 4 imágenes por producto');
+      files.slice(0, Math.max(0, room)).forEach(f => readImage(f, img => { if(imgs.length < 4){ imgs.push(img); thumbs(); } }));
+      el.value = '';
+    }
+  }catch(err){ toast(err.message); }
+});
+document.addEventListener('submit', async e => {
+  if(e.target.id !== 'pf') return; e.preventDefault();
+  const f = e.target, old = f.pid.value ? S.products.find(x => x.id === +f.pid.value) : null;
+  const url = f.url.value.trim(), list = (url ? [...imgs, url] : imgs).slice(0, 4);
+  const p = {id: old ? old.id : Date.now(), title:f.title.value.trim(), price:Number(f.price.value), stock:Math.max(0, Math.floor(Number(f.stock.value) || 0)),
+    cat:f.cat.value, desc:f.desc.value.trim(), seller:old ? old.seller : 'Tienda', img:list[0] || '', imgs:list};
+  if(p.title.length < 2) return $('#perr').textContent = 'Escribe un título.';
+  if(!(p.price >= 0)) return $('#perr').textContent = 'Revisa el precio.';
+  try{ await saveProd(p); await load(); $('#dlg').close(); render(); toast('Producto guardado'); }
+  catch(err){ $('#perr').textContent = err.message; }
+});
+$('#dlg').addEventListener('click', e => { if(e.target === $('#dlg')) $('#dlg').close(); });
+
+/* ========== Arranque: sin sesión de administrador, vuelve a la tienda sin mostrar nada ========== */
+(async () => {
+  if(!tok()) return location.replace('/');
+  try{ await call('check'); await load(); }
+  catch(e){ if(e.message === 'Sesión vencida') return; document.body.hidden = false; $('#view').innerHTML = '<p class="err">' + esc(e.message) + '</p>'; return; }
+  document.body.hidden = false; render();
+})();
+</script>
+</body>
+</html>
