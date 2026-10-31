@@ -92,7 +92,7 @@ const saveCfg = () => call('saveConfig', {config:S.cfg});
 const saveProd = p => call('saveProduct', {product:p});
 
 /* ========== Vistas ========== */
-const TABS = {prod:'Productos', cat:'Categorías', shop:'Tienda y QR', ord:'Pedidos', usr:'Clientes'};
+const TABS = {prod:'Productos', cat:'Categorías', shop:'Tienda y QR', ord:'Pedidos'};
 const th = p => { const s = (p.imgs && p.imgs[0]) || p.img; return s ? `<img class="th" src="${esc(s)}" alt="">` : '<div class="th">📦</div>'; };
 function prodHTML(){
   return `<div class="bar2"><h2>Productos (${S.products.length})</h2><button class="btn primary" data-new>＋ Nuevo producto</button></div>` +
@@ -110,7 +110,6 @@ function shopHTML(){
   <div class="acts"><button class="btn primary" data-qrurl>Usar URL</button>${S.cfg.qr ? '<button class="btn" data-qrdel>Quitar QR</button>' : ''}</div>`;
 }
 const ordHTML = o => '<h2>Pedidos recientes</h2>' + (o.length ? o.map(x => `<div class="row" style="align-items:flex-start"><div class="grow"><b>${esc(x.name)}</b> – ${esc(x.phone)}${x.email ? `<div class="meta">${esc(x.email)}</div>` : ''}<div class="meta">${new Date(x.time).toLocaleString('es-CO')}</div>${x.items.map(i => esc(i.qty + ' × ' + i.title)).join('<br>')}</div><b>${fmt(x.total)}</b></div>`).join('') : '<p class="meta">Aún no hay pedidos.</p>');
-const usrHTML = u => `<h2>Clientes (${u.length})</h2>` + (u.length ? u.map(x => `<div class="row"><div class="grow"><b>${esc(x.name)}</b><div class="meta">${esc(x.email)} – registrado el ${new Date(x.created).toLocaleDateString('es-CO')}</div></div><button class="btn" data-udel="${esc(x.email)}">Eliminar</button></div>`).join('') : '<p class="meta">Aún no hay clientes registrados.</p>');
 
 async function render(){
   $('#tabs').innerHTML = Object.entries(TABS).map(([k,v]) => `<button class="tab" data-tab="${k}" aria-pressed="${tab === k}">${v}</button>`).join('');
@@ -120,7 +119,6 @@ async function render(){
     else if(tab === 'cat') v.innerHTML = catHTML();
     else if(tab === 'shop') v.innerHTML = shopHTML();
     else if(tab === 'ord'){ v.innerHTML = '<p class="meta">Cargando…</p>'; v.innerHTML = ordHTML((await call('orders')).orders); }
-    else { v.innerHTML = '<p class="meta">Cargando…</p>'; v.innerHTML = usrHTML((await call('users')).users); }
   }catch(e){ v.innerHTML = '<p class="err">' + esc(e.message) + '</p>'; }
 }
 
@@ -165,7 +163,6 @@ document.addEventListener('click', async e => {
     else if(d.hero !== undefined){ const tt_ = $('#hT').value.trim(); if(!tt_) return toast('El título no puede estar vacío'); C.hero = {t:tt_, d:$('#hD').value.trim()}; await saveCfg(); toast('Textos guardados'); }
     else if(d.qrurl !== undefined){ C.qr = $('#qrU').value.trim(); await saveCfg(); render(); toast('QR guardado'); }
     else if(d.qrdel !== undefined){ C.qr = ''; await saveCfg(); render(); toast('QR eliminado'); }
-    else if(d.udel){ if(!sure(t)) return; await call('deleteUser', {email:d.udel}); render(); toast('Cliente eliminado'); }
   }catch(err){ toast(err.message); }
 });
 document.addEventListener('change', async e => {

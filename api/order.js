@@ -1,5 +1,5 @@
 // POST /api/order -> registra un pedido y descuenta el stock en el servidor (nadie puede comprar más de lo disponible)
-const { redis, readToken } = require('../lib/store');
+const { redis } = require('../lib/store');
 
 module.exports = async (req, res) => {
   if (req.method !== 'POST') return res.status(405).json({ error: 'Método no permitido' });
@@ -29,12 +29,6 @@ module.exports = async (req, res) => {
       time: Date.now(), name: String(name).trim().slice(0, 60), phone: String(phone).trim().slice(0, 30),
       items: lines, total: lines.reduce((s, l) => s + l.price * l.qty, 0),
     };
-    const who = readToken(req);   // si el cliente tiene sesión, el pedido queda en su cuenta
-    if (who && who.r === 'client') {
-      order.email = who.email;
-      await redis('LPUSH', 'uorders:' + who.email, JSON.stringify(order));
-      await redis('LTRIM', 'uorders:' + who.email, 0, 29);
-    }
     await redis('LPUSH', 'orders', JSON.stringify(order));
     await redis('LTRIM', 'orders', 0, 199);
     res.status(200).json({ ok: true });

@@ -147,8 +147,7 @@ body.viewer .adm{display:none!important}
     <a class="logo" href="#" aria-label="Mercadito, inicio">Mercadito</a>
     <form class="search" role="search" onsubmit="return false"><input id="q" type="search" placeholder="Buscar productos…" aria-label="Buscar productos"></form>
     <button class="btn cartbtn" id="btnCart" aria-label="Abrir carrito">🛒<span class="badge" id="count" hidden>0</span></button>
-    <button class="btn" id="btnUser">👤 <span class="lbl" id="userLbl">Ingresar</span></button>
-  </div>
+    </div>
 </header>
 
 <main class="wrap">
@@ -195,9 +194,6 @@ body.viewer .adm{display:none!important}
   <button class="btn primary block" id="paid">Ya realicé el pago</button>
 </div></dialog>
 
-<!-- ===== PERFIL / SESIÓN ===== -->
-<dialog id="dlgUser"><div class="mbody" id="userBody"></div></dialog>
-
 <!-- ===== CARRITO ===== -->
 <div id="veil"></div>
 <aside id="cart" aria-label="Carrito de compras">
@@ -230,7 +226,7 @@ const store = {
   set(k, v){ mem[k] = v; try{ localStorage.setItem(k, JSON.stringify(v)); }catch(e){} }
 };
 const state = {
-  products: SEED,
+  products: [],
   cart: store.get('mc_cart', {}),        // { idProducto: cantidad }
   user: store.get('mc_user', null),      // { name }
   q:'', cat:'Todas', sort:''
@@ -277,7 +273,7 @@ function renderGrid(){
         <div class="price">${fmt(p.price)}</div><div class="stk ${stockOf(p)<=3 ? 'low' : ''}">${stockLabel(p)}</div>
         <button class="btn primary" data-add="${p.id}" ${stockOf(p)<1 ? 'disabled' : ''}>${stockOf(p)<1 ? 'Agotado' : 'Añadir al carrito'}</button>
       </div>
-    </article>`).join('') : '<p class="empty">No encontramos productos con esos filtros. Prueba otra categoría o publica el primero.</p>';
+    </article>`).join('') : '<p class="empty">' + (loaded ? 'No hay productos con esos filtros por ahora.' : 'Cargando productos…') + '</p>';
 }
 
 /* ========== D. DETALLE DE PRODUCTO ========== */
@@ -352,23 +348,7 @@ function openPay(){
   $('#payTotal').textContent = fmt(cartTotal());
   $('#payQr').src = qrImg || qrPlaceholder();
   $('#payHint').textContent = qrImg ? 'Abre la app de tu banco o billetera y escanea el código.' : 'El vendedor aún no ha cargado su código QR de pago.';
-  if(session && !$('#payName').value) $('#payName').value = session.name;
   $('#dlgPay').showModal();
-}
-
-/* ========== G. CUENTAS DE CLIENTE (opcionales: también se puede comprar sin cuenta) ========== */
-let authMode = 'login';
-function renderUser(){
-  $('#userLbl').textContent = session ? session.name.split(' ')[0] : 'Ingresar';
-  const head = t => `<div class="mhead"><h2>${t}</h2><button class="x" data-close aria-label="Cerrar">✕</button></div>`;
-  $('#userBody').innerHTML = session
-    ? head('Mi cuenta') + `<p style="margin:0">Hola, <b>${esc(session.name)}</b><br><span class="meta">${esc(session.email)}</span></p><h3>Mis pedidos</h3><div id="myOrders" class="list meta">Cargando…</div><button class="btn block" id="logout">Cerrar sesión</button>`
-    : head(authMode === 'login' ? 'Ingresar' : 'Crear cuenta')
-      + (authMode === 'register' ? '<label>Nombre<input id="aName" maxlength="60" autocomplete="name"></label>' : '')
-      + '<label>Correo<input id="aMail" type="email" autocomplete="email"></label><label>Contraseña<input id="aPass" type="password" autocomplete="current-password"></label><div class="err" id="authErr" role="alert"></div>'
-      + '<button class="btn primary block" id="doAuth">' + (authMode === 'login' ? 'Ingresar' : 'Crear cuenta') + '</button>'
-      + '<button class="btn block" id="toggleAuth">' + (authMode === 'login' ? '¿Primera vez? Crea tu cuenta' : 'Ya tengo cuenta') + '</button>'
-      + '<p class="meta" style="margin:0">También puedes comprar sin cuenta.</p>';
 }
 
 /* ========== H. EVENTOS (delegación) ========== */
@@ -385,58 +365,55 @@ document.addEventListener('click', e => {
   if(d.rm){ delete state.cart[d.rm]; store.set('mc_cart', state.cart); renderCart(); }
   if(t.id==='checkout') openPay();
   if(t.id==='paid') confirmOrder();
-  if(t.id==='doAuth') doAuth();
-  if(t.id==='toggleAuth'){ authMode = authMode === 'login' ? 'register' : 'login'; renderUser(); }
-  if(t.id==='logout') logout();
 });
 $('#btnCart').onclick = () => toggleCart(true);
 $('#cartClose').onclick = $('#veil').onclick = () => toggleCart(false);
-$('#btnUser').onclick = () => { renderUser(); $('#dlgUser').showModal(); loadMyOrders(); };
 $('#heroShop').onclick = () => $('#shop').scrollIntoView({behavior:'smooth'});
 $('#q').addEventListener('input', e => { state.q = e.target.value; renderGrid(); });
 $('#sort').addEventListener('change', e => { state.sort = e.target.value; renderGrid(); });
 // Cerrar un diálogo al hacer clic en el fondo
 document.querySelectorAll('dialog').forEach(dl => dl.addEventListener('click', e => { if(e.target===dl) dl.close(); }));
 
-/* ========== J. SERVIDOR: catálogo, pedidos y cuentas ========== */
+/* ========== J. SERVIDOR: catálogo y pedidos (sin cuentas: el carrito se guarda en el navegador) ========== */
 function stockOf(p){ return p.stock === undefined ? 10 : p.stock; }
 function stockLabel(p){ const s = stockOf(p); return s < 1 ? 'Agotado' : s === 1 ? 'Queda 1 unidad' : s <= 5 ? 'Quedan ' + s + ' unidades' : s + ' disponibles'; }
 
-let session = store.get('mc_session', null), online = false;   // session: {token, name, email}
+let online = false, loaded = false;
 async function api(path, body){
-  const hd = {'Content-Type':'application/json'}; if(session) hd.Authorization = 'Bearer ' + session.token;
-  const r = await fetch(path, body ? {method:'POST', headers:hd, body:JSON.stringify(body)} : {cache:'no-store'});
+  const r = await fetch(path, body ? {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(body)} : {cache:'no-store'});
   const j = await r.json().catch(() => ({}));
   if(!r.ok) throw Object.assign(new Error(j.error || 'Error del servidor'), {status:r.status});
   return j;
 }
 function renderAll(){ renderChips(); renderGrid(); renderCart(); renderTiles(); renderHero(); }
+
+// Carrito guardado en localStorage: se conserva al recargar o cerrar la página.
+// Al recibir el catálogo se quita lo que ya no existe o está agotado y se limitan las cantidades al stock.
+function reconcileCart(){
+  let changed = false;
+  Object.keys(state.cart).forEach(k => {
+    const p = byId(+k);
+    if(!p || stockOf(p) < 1){ delete state.cart[k]; changed = true; }
+    else if(state.cart[k] > stockOf(p)){ state.cart[k] = stockOf(p); changed = true; }
+  });
+  if(changed){ store.set('mc_cart', state.cart); toast('Actualizamos tu carrito según el inventario'); }
+}
+window.addEventListener('storage', e => { if(e.key === 'mc_cart'){ try{ state.cart = JSON.parse(e.newValue || '{}'); }catch(x){ state.cart = {}; } renderCart(); } });   // sincroniza entre pestañas
+
 async function loadShop(){
   try{
-    const j = await api('/api/shop'); online = true;
+    const j = await api('/api/shop'); online = true; loaded = true;
     const big = id => id > 1e12;
     state.products = j.products.sort((a,b) => (big(b.id)-big(a.id)) || (big(a.id) ? b.id-a.id : a.id-b.id));
     const c = j.config;
     if(c){ if(Array.isArray(c.cats)) CATS = c.cats; CATIMG = c.catimg || {}; heroTxt = c.hero || null; qrImg = c.qr || ''; }
+    reconcileCart(); renderAll();
+  }catch(e){
+    loaded = true;
+    if(e.status >= 500){ online = true; toast(e.message); }
+    else if(!state.products.length) state.products = SEED;   // sin servidor (archivo local): modo demostración
     renderAll();
-  }catch(e){ if(e.status >= 500){ online = true; toast(e.message); } }   // sin servidor (archivo local): modo demostración
-}
-async function doAuth(){
-  const body = {action:authMode, email:$('#aMail').value, password:$('#aPass').value};
-  if(authMode === 'register') body.name = $('#aName').value;
-  try{
-    const j = await api('/api/auth', body);
-    session = {token:j.token, ...j.user}; store.set('mc_session', session);
-    renderUser(); toast(authMode === 'register' ? 'Cuenta creada' : 'Sesión iniciada'); loadMyOrders();
-  }catch(e){ $('#authErr').textContent = e.status ? e.message : 'No se pudo conectar con la tienda.'; }
-}
-function logout(){ session = null; store.set('mc_session', null); renderUser(); toast('Sesión cerrada'); }
-async function loadMyOrders(){
-  const box = $('#myOrders'); if(!box) return;
-  try{
-    const j = await api('/api/auth', {action:'myOrders'});
-    box.innerHTML = j.orders.length ? j.orders.map(o => `<div><b>${fmt(o.total)}</b> – ${new Date(o.time).toLocaleDateString('es-CO')}<br>${o.items.map(i => esc(i.qty + ' × ' + i.title)).join('<br>')}</div>`).join('') : 'Aún no tienes pedidos.';
-  }catch(e){ box.textContent = e.message; }
+  }
 }
 async function confirmOrder(){
   const name = $('#payName').value.trim(), phone = $('#payPhone').value.trim();
@@ -453,12 +430,12 @@ async function confirmOrder(){
   if(online) await loadShop(); else { renderGrid(); renderCart(); }
 }
 
-// Acceso oculto del administrador: pulsa 5 veces seguidas el logo. No hay ningún botón ni enlace visible.
+// Acceso oculto del administrador: pulsa 8 veces seguidas el logo. No hay ningún botón ni enlace visible.
 function openAdminLogin(){
   let d = $('#dlgAdm');
   if(!d){
     d = document.createElement('dialog'); d.id = 'dlgAdm';
-    d.innerHTML = '<form class="mbody" autocomplete="off"><div class="mhead"><h2>Acceso</h2><button type="button" class="x" data-close aria-label="Cerrar">✕</button></div><label>Usuario<input name="u" autocomplete="username"></label><label>Contraseña<input name="p" type="password" autocomplete="current-password"></label><div class="err" role="alert"></div><button class="btn primary block">Entrar</button></form>';
+    d.innerHTML = '<form class="mbody" autocomplete="off"><div class="mhead"><h2>Acceso</h2><button type="button" class="x" data-close aria-label="Cerrar">✕</button></div><label>Usuario<input name="u" autocomplete="username" autocapitalize="none"></label><label>Contraseña<input name="p" type="password" autocomplete="current-password"></label><div class="err" role="alert"></div><button class="btn primary block">Entrar</button></form>';
     document.body.appendChild(d);
     d.addEventListener('click', e => { if(e.target === d) d.close(); });
     d.querySelector('form').addEventListener('submit', async e => {
@@ -470,16 +447,15 @@ function openAdminLogin(){
   d.querySelector('form').reset(); d.showModal();
 }
 let taps = 0, tapTimer;
-$('.logo').addEventListener('click', e => { e.preventDefault(); taps++; clearTimeout(tapTimer); tapTimer = setTimeout(() => taps = 0, 1500); if(taps >= 5){ taps = 0; openAdminLogin(); } });
+$('.logo').addEventListener('click', e => { e.preventDefault(); taps++; clearTimeout(tapTimer); tapTimer = setTimeout(() => taps = 0, 1500); if(taps >= 8){ taps = 0; openAdminLogin(); } });
 
 async function boot(){
-  if(session){ try{ const j = await api('/api/auth', {action:'me'}); if(!j.user){ session = null; store.set('mc_session', null); } }catch(e){} renderUser(); }
   await loadShop();
   setInterval(() => { if(online && !document.querySelector('dialog[open]')) loadShop(); }, 20000);   // stock en vivo
 }
 
 /* ========== I. INICIO ========== */
-renderChips(); renderGrid(); renderCart(); renderUser(); renderTiles(); renderHero(); boot();
+renderChips(); renderGrid(); renderCart(); renderTiles(); renderHero(); boot();
 </script>
 </body>
 </html>

@@ -1,4 +1,4 @@
-// POST /api/admin -> acciones del administrador (exigen sesión con rol admin): check, saveProduct, deleteProduct, saveConfig, orders, users, deleteUser
+// POST /api/admin -> acciones del administrador (exigen sesión con rol admin): check, saveProduct, deleteProduct, saveConfig, orders
 const { redis, isAdmin } = require('../lib/store');
 
 const str = (v, n) => String(v == null ? '' : v).slice(0, n);
@@ -50,14 +50,6 @@ module.exports = async (req, res) => {
         const rows = await redis('LRANGE', 'orders', 0, 49);
         return res.status(200).json({ orders: (rows || []).map((r) => JSON.parse(r)) });
       }
-      case 'users': {
-        const all = await redis('HGETALL', 'users'), out = [];
-        for (let i = 1; i < (all || []).length; i += 2) { const u = JSON.parse(all[i]); out.push({ name: u.name, email: u.email, created: u.created }); }
-        return res.status(200).json({ users: out });
-      }
-      case 'deleteUser':
-        await redis('HDEL', 'users', String(b.email || '').toLowerCase());
-        return res.status(200).json({ ok: true });
       default:
         return res.status(400).json({ error: 'Acción desconocida' });
     }
