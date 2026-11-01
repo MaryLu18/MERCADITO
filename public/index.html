@@ -37,9 +37,9 @@ h1,h2,h3{font-family:var(--font);margin:0;line-height:1.1}
 /* ========== 2. CABECERA: slogan en movimiento + menú de categorías ========== */
 header{position:sticky;top:0;z-index:30;background:rgba(27,29,36,.9);backdrop-filter:blur(14px);border-bottom:1px solid var(--line)}
 .marquee{background:var(--grad);overflow:hidden;height:34px;display:flex;align-items:center}
-.track{display:flex;width:max-content;animation:marq 34s linear infinite}
+.track{display:flex;flex:none;width:-webkit-max-content;width:max-content;animation:marq 34s linear infinite;will-change:transform}
 .track span{padding:0 26px;font-weight:600;font-size:.8rem;letter-spacing:.07em;text-transform:uppercase;white-space:nowrap;color:#fff}
-@keyframes marq{to{transform:translateX(-50%)}}
+@keyframes marq{from{transform:translate3d(0,0,0)}to{transform:translate3d(-50%,0,0)}}
 .bar{max-width:1240px;margin:0 auto;padding:10px 20px;display:grid;grid-template-columns:auto 1fr auto;align-items:center;gap:16px}
 .logo{font:700 1.25rem var(--font);color:#fff;text-decoration:none;display:flex;align-items:center;gap:10px;user-select:none}
 .logo i{width:32px;height:32px;border-radius:10px;background:var(--grad);display:grid;place-items:center;font-style:normal;font-size:1rem}
@@ -133,7 +133,10 @@ input,textarea{padding:11px 13px;border:1px solid var(--line);border-radius:12px
   .grid{grid-template-columns:repeat(2,1fr);gap:12px}
 }
 @media(max-width:400px){.grid{grid-template-columns:1fr}}
-@media(prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+@media(prefers-reduced-motion:reduce){
+  *{animation:none!important;transition:none!important}
+  .marquee .track{animation:marq 70s linear infinite!important}   /* el slogan sigue moviéndose (más lento) aunque el aparato tenga activado "reducir animaciones" */
+}
 </style>
 </head>
 <body>
@@ -147,6 +150,11 @@ input,textarea{padding:11px 13px;border:1px solid var(--line);border-radius:12px
     <button class="cartbtn" id="btnCart" aria-label="Abrir carrito">🛒<span class="badge" id="count" hidden>0</span></button>
   </div>
 </header>
+<script>
+/* Slogan del marquee. Está en ES5 a propósito y separado del script principal: así se pinta incluso en navegadores antiguos.
+   Para cambiar el texto, edita la variable s. Se repite en dos mitades iguales para que el bucle no tenga saltos. */
+(function(){ var s = 'El voltaje que necesitan tus proyectos', h = '', i; for(i = 0; i < 7; i++) h += '<span>' + s + ' ⚡</span>'; document.getElementById('track').innerHTML = h + h; })();
+</script>
 
 <main>
   <!-- INICIO: se muestra mientras no haya categoría seleccionada -->
@@ -198,15 +206,14 @@ input,textarea{padding:11px 13px;border:1px solid var(--line);border-radius:12px
 
 <script>
 /* ========== A. DATOS Y UTILIDADES ========== */
+// ⚠️ PON AQUÍ TU NÚMERO DE WHATSAPP: solo dígitos, con indicativo de país, sin "+" ni espacios.
+// Colombia = 57 + tu número. Ejemplo: '573001234567'. Si lo dejas vacío, WhatsApp pedirá elegir el contacto.
+const WHATSAPP_NUMBER = '';
+
 const FREE_SHIP = 200000, SHIP = 12000;
 // Categorías por defecto (el administrador puede cambiarlas, añadir más y poner su imagen desde el portal).
 // "Todo" no es una categoría real: es el botón que muestra los artículos de todas.
-let CATS = ['Resistencias', 'Diodos', 'LEDs', 'Transistores', 'Capacitores'];
-let CATIMG = {
-  'Capacitores': 'https://i.postimg.cc/SK42hd2k/capacitor.jpg'
-};
-let qrImg = '';
-const SLOGAN = 'El voltaje que necesitan tus proyectos';
+let CATS = ['Resistencias','Diodos','LEDs','Transistores'], CATIMG = {}, qrImg = '';
 // Catálogo de ejemplo: solo se usa si la página se abre sin servidor (modo demostración)
 const SEED = [
   {id:1,title:'Resistencia 1 kΩ 1/4 W (pack x20)',price:3500,cat:'Resistencias',stock:50,desc:'Película de carbón, tolerancia 5 %. Pack de 20 unidades.'},
@@ -371,18 +378,34 @@ function openPay(){
   $('#payHint').textContent = qrImg ? 'Abre la app de tu banco o billetera y escanea el código.' : 'El vendedor aún no ha cargado su código QR de pago.';
   $('#dlgPay').showModal();
 }
+// Arma el mensaje de WhatsApp con el texto exacto del pedido
+function whatsappUrl(items, name, phone){
+  const lista = items.map(it => { const p = byId(it.id); return '- ' + (p ? p.title : 'Artículo') + ' (x' + it.qty + ')'; }).join('\n');
+  const msg = 'Acabo de hacer un pedido desde la página de mercadito.\nLos artículos son los siguientes:\n' + lista + '\n' + name + '\n' + phone;
+  return 'https://wa.me/' + String(WHATSAPP_NUMBER).replace(/\D/g, '') + '?text=' + encodeURIComponent(msg);
+}
+let sending = false;
 async function confirmOrder(){
+  if(sending) return;
   const name = $('#payName').value.trim(), phone = $('#payPhone').value.trim();
   if(!name || !phone) return toast('Escribe tu nombre y teléfono para enviar el pedido');
   const items = Object.keys(state.cart).map(k => ({id:+k, qty:state.cart[k]}));
-  if(online){
-    try{ await api('/api/order', {items, name, phone}); }
-    catch(e){ toast(e.message); await loadShop(); return; }
-  }else{
-    items.forEach(it => { const p = byId(it.id); if(p) p.stock = Math.max(0, stockOf(p) - it.qty); });
+  if(!items.length) return toast('Tu carrito está vacío');
+  const url = whatsappUrl(items, name, phone);   // se arma ANTES de vaciar el carrito
+  const wa = window.open('', '_blank');          // se abre en el mismo clic para que el navegador no la bloquee
+  sending = true; $('#paid').disabled = true;
+  try{
+    if(online) await api('/api/order', {items, name, phone});   // el servidor descuenta el stock
+    else items.forEach(it => { const p = byId(it.id); if(p) p.stock = Math.max(0, stockOf(p) - it.qty); });
+  }catch(e){
+    if(wa) wa.close();
+    toast(e.message); sending = false; $('#paid').disabled = false; await loadShop(); return;
   }
-  state.cart = {}; store.set('mc_cart', state.cart); $('#dlgPay').close(); toggleCart(false);
-  toast('Pedido enviado. El vendedor confirmará tu pago.');
+  state.cart = {}; store.set('mc_cart', state.cart);       // vacía el carrito
+  $('#dlgPay').close(); toggleCart(false);                  // cierra la ventana de pago
+  if(wa) wa.location.href = url; else location.href = url;  // abre WhatsApp
+  toast('Pedido enviado. Se abrió WhatsApp para avisar al vendedor.');
+  sending = false; $('#paid').disabled = false;
   if(online) await loadShop(); else render();
 }
 
@@ -455,8 +478,6 @@ $('#sort').addEventListener('change', e => { state.sort = e.target.value; render
 document.querySelectorAll('dialog').forEach(dl => dl.addEventListener('click', e => { if(e.target === dl) dl.close(); }));
 
 /* ========== I. INICIO ========== */
-const half = Array(7).fill(`<span>${SLOGAN} ⚡</span>`).join('');
-$('#track').innerHTML = half + half;   // dos mitades iguales: la animación recorre una y vuelve a empezar sin saltos
 route();
 (async () => {
   await loadShop();

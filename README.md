@@ -63,6 +63,9 @@ Redis no usa tablas: la aplicación crea sola estas claves al usarse, no tienes 
 - Desde el portal, pestaña **Categorías**: añade, renombra o elimina categorías (los productos de una categoría eliminada pasan a "Sin categoría" y siguen en *Todo*) y cambia la **imagen del rectángulo grande** de cada una, incluida la de *Todo*. Si no subes foto, se muestra una ilustración del componente.
 - El menú superior se acomoda solo: si agregas más categorías pasa a otra línea (en el celular también).
 - Cada categoría tiene su propio buscador y orden por precio. La dirección cambia con la categoría (`/#Diodos`), así que funciona el botón "atrás" y se pueden compartir enlaces directos.
-- Efectos: al pasar el cursor, una línea se despliega desde la derecha bajo el nombre; la categoría activa se resalta con otro color. El slogan se mueve en bucle infinito (marquee) sobre el menú; para cambiarlo edita `SLOGAN` en `public/index.html`.
+- Efectos: al pasar el cursor, una línea se despliega desde la derecha bajo el nombre; la categoría activa se resalta con otro color. El slogan se mueve en bucle infinito (marquee) sobre el menú; para cambiarlo edita la variable `s` del pequeño script que está justo después de `</header>` en `public/index.html`.
 - Estética: tema oscuro grafito con violeta, azul y naranja de acento, tarjetas redondeadas y formas 3D, inspirado en la imagen de referencia.
 - Las imágenes se reducen y se guardan en la base de datos; el conjunto de imágenes de categorías y QR no debe pasar de unos 900 KB. Si el portal avisa que pesan demasiado, quita alguna.
+
+## WhatsApp del pedido
+En `public/index.html`, busca `WHATSAPP_NUMBER` (al inicio del script) y pon tu número solo con dígitos y con indicativo de país, por ejemplo `'573001234567'`. Al confirmar el pedido, la tienda cierra la ventana de pago, vacía el carrito y abre WhatsApp con el mensaje: artículos con cantidades, nombre y teléfono del cliente.
