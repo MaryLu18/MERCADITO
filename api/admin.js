@@ -1,5 +1,5 @@
 // POST /api/admin -> acciones del administrador (exigen sesión con rol admin): check, saveProduct, deleteProduct, saveConfig, orders
-const { redis, isAdmin } = require('../lib/store');
+const { redis, isAdmin, saveAdmin, checkAdminPassword, tooMany, failed } = require('../lib/store');
 
 const str = (v, n) => String(v == null ? '' : v).slice(0, n);
 
@@ -15,9 +15,9 @@ function cleanProduct(p) {
 }
 
 function cleanConfig(c = {}) {
-  const cats = (Array.isArray(c.cats) ? c.cats : []).map((x) => str(x, 40)).filter(Boolean).slice(0, 30);
+  const cats = (Array.isArray(c.cats) ? c.cats : []).map((x) => str(x, 40)).filter((x) => x && x.toLowerCase() !== 'todo').slice(0, 30);
   const catimg = {};
-  for (const k of Object.keys(c.catimg || {})) if (cats.includes(k) && typeof c.catimg[k] === 'string' && c.catimg[k].length < 200000) catimg[k] = c.catimg[k];
+  for (const k of Object.keys(c.catimg || {})) if ((cats.includes(k) || k === 'Todo') && typeof c.catimg[k] === 'string' && c.catimg[k].length < 200000) catimg[k] = c.catimg[k];
   const hero = c.hero && c.hero.t ? { t: str(c.hero.t, 90), d: str(c.hero.d, 220) } : null;
   const qr = typeof c.qr === 'string' && c.qr.length < 600000 ? c.qr : '';
   return { cats, catimg, hero, qr };
@@ -27,7 +27,7 @@ module.exports = async (req, res) => {
   if (req.method !== 'POST') return res.status(405).json({ error: 'Método no permitido' });
   try {
     const b = req.body || {};
-    if (!isAdmin(req)) return res.status(401).json({ error: 'Sesión vencida. Inicia sesión de nuevo.' });
+    if (!(await isAdmin(req))) return res.status(401).json({ error: 'Sesión vencida. Inicia sesión de nuevo.' });
 
     switch (b.action) {
       case 'check':
@@ -44,11 +44,22 @@ module.exports = async (req, res) => {
         return res.status(200).json({ ok: true });
       }
       case 'saveConfig':
-        await redis('SET', 'config', JSON.stringify(cleanConfig(b.config)));
+        const json = JSON.stringify(cleanConfig(b.config));
+        if (json.length > 900000) return res.status(400).json({ error: 'Las imágenes pesan demasiado. Quita alguna o usa fotos más pequeñas.' });
+        await redis('SET', 'config', json);
         return res.status(200).json({ ok: true });
       case 'orders': {
         const rows = await redis('LRANGE', 'orders', 0, 49);
         return res.status(200).json({ orders: (rows || []).map((r) => JSON.parse(r)) });
+      }
+      case 'changeCredentials': {   // cambia usuario y contraseña (se guardan cifrados en la base de datos)
+        if (await tooMany(req)) return res.status(429).json({ error: 'Demasiados intentos. Espera unos minutos.' });
+        if (!(await checkAdminPassword(b.current))) { await failed(req); return res.status(403).json({ error: 'La contraseña actual no es correcta' }); }
+        const user = str(b.user, 40).trim(), pw = String(b.password || '');
+        if (user.length < 3) return res.status(400).json({ error: 'El usuario debe tener al menos 3 caracteres' });
+        if (pw.length < 8 || pw.length > 100) return res.status(400).json({ error: 'La contraseña debe tener entre 8 y 100 caracteres' });
+        await saveAdmin(user, pw);
+        return res.status(200).json({ ok: true });
       }
       default:
         return res.status(400).json({ error: 'Acción desconocida' });

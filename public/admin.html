@@ -6,10 +6,9 @@
 <meta name="robots" content="noindex, nofollow">
 <title>Panel</title>
 <style>
-:root{color-scheme:light dark;--bg:#F6F8F7;--surface:#fff;--ink:#14201B;--muted:#5B6B64;--line:#E1E8E4;--brand:#0E8A5F;--brand-ink:#fff;--soft:#E3F3EB;--danger:#C2410C}
-@media(prefers-color-scheme:dark){:root{--bg:#0E1512;--surface:#16201B;--ink:#E8F1EC;--muted:#93A49B;--line:#26342D;--brand:#2FC48A;--brand-ink:#06251A;--soft:#173126;--danger:#F08A5D}}
+:root{color-scheme:dark;--bg:#1b1d24;--surface:#23262f;--ink:#eef0f7;--muted:#9aa0b4;--line:rgba(255,255,255,.08);--brand:#6f5cf2;--brand-ink:#fff;--soft:#2b2e3a;--danger:#ff7a4d}
 *{box-sizing:border-box}
-body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.5 system-ui,-apple-system,'Segoe UI',sans-serif}
+body{margin:0;background:radial-gradient(1000px 500px at 85% -8%,rgba(111,92,242,.2),transparent 60%),var(--bg);color:var(--ink);font:16px/1.5 system-ui,-apple-system,'Segoe UI',sans-serif}
 button,input,select,textarea{font:inherit;color:inherit}button{cursor:pointer}
 h2{margin:0 0 12px;font-size:1.3rem}
 .top{position:sticky;top:0;z-index:5;background:var(--surface);border-bottom:1px solid var(--line);display:flex;justify-content:space-between;align-items:center;gap:8px;padding:12px 20px;flex-wrap:wrap}
@@ -17,7 +16,7 @@ h2{margin:0 0 12px;font-size:1.3rem}
 .wrap{max-width:900px;margin:0 auto;padding:20px}
 .btn{border:1px solid var(--line);background:var(--surface);border-radius:10px;padding:8px 14px;font-weight:500;text-decoration:none;color:var(--ink);display:inline-block}
 .btn:hover{border-color:var(--brand)}
-.btn.primary{background:var(--brand);color:var(--brand-ink);border-color:var(--brand);font-weight:700}
+.btn.primary{background:linear-gradient(135deg,#6f5cf2,#8f7bff);color:#fff;border-color:transparent;font-weight:700}
 #tabs{display:flex;gap:8px;flex-wrap:wrap;padding:14px 20px 0;max-width:900px;margin:0 auto}
 .tab{border:1px solid var(--line);background:var(--surface);border-radius:99px;padding:6px 16px}
 .tab[aria-pressed="true"]{background:var(--brand);color:var(--brand-ink);border-color:var(--brand);font-weight:700}
@@ -80,7 +79,7 @@ async function call(action, extra){
 }
 
 /* ========== Datos ========== */
-const S = {products:[], cfg:{cats:['Electrónica','Ropa','Hogar','Deportes','Libros'], catimg:{}, hero:null, qr:''}};
+const S = {products:[], cfg:{cats:['Resistencias','Diodos','LEDs','Transistores'], catimg:{}, hero:null, qr:''}};
 let tab = 'prod', imgs = [];
 async function load(){
   const r = await fetch('/api/shop', {cache:'no-store'}), j = await r.json();
@@ -98,16 +97,23 @@ function prodHTML(){
   return `<div class="bar2"><h2>Productos (${S.products.length})</h2><button class="btn primary" data-new>＋ Nuevo producto</button></div>` +
   (S.products.length ? S.products.map(p => `<div class="row">${th(p)}<div class="grow"><b>${esc(p.title)}</b><div class="meta">${esc(p.cat || 'Sin categoría')} – ${fmt(p.price)}</div></div><label class="meta">Stock<input type="number" min="0" value="${p.stock}" data-stock="${p.id}"></label><button class="btn" data-edit="${p.id}">Editar</button><button class="btn" data-del="${p.id}">Eliminar</button></div>`).join('') : '<p class="meta">Aún no hay productos. Crea el primero con el botón de arriba.</p>');
 }
+function todoRow(){   // "Todo" siempre existe: solo se puede cambiar su imagen
+  const C = S.cfg;
+  return `<div class="row">${C.catimg.Todo ? `<img class="th" src="${esc(C.catimg.Todo)}" alt="">` : '<div class="th">🖼️</div>'}<div class="grow"><b>Todo</b><div class="meta">Muestra los artículos de todas las categorías. No se puede renombrar ni eliminar.</div></div><label class="btn">Imagen<input type="file" accept="image/*" data-cimgname="Todo" hidden></label>${C.catimg.Todo ? '<button class="btn" data-cimgdelname="Todo">Quitar imagen</button>' : ''}</div>`;
+}
 function catHTML(){
   const C = S.cfg;
-  return '<h2>Categorías</h2><p class="meta">La imagen aparece en las cajas de la portada (las primeras 8 categorías).</p>' + C.cats.map((c,i) => `<div class="row">${C.catimg[c] ? `<img class="th" src="${esc(C.catimg[c])}" alt="">` : '<div class="th">🖼️</div>'}<input class="grow" value="${esc(c)}" data-ren="${i}" maxlength="40" aria-label="Nombre de la categoría"><label class="btn">Imagen<input type="file" accept="image/*" data-cimg="${i}" hidden></label>${C.catimg[c] ? `<button class="btn" data-cimgdel="${i}">Quitar imagen</button>` : ''}<button class="btn" data-cdel="${i}">Eliminar</button></div>`).join('') + '<div class="row"><input class="grow" id="newCat" maxlength="40" placeholder="Nueva categoría"><button class="btn primary" data-cadd>Añadir</button></div>';
+  return '<h2>Categorías</h2><p class="meta">Estas categorías forman el menú de la tienda. La imagen es el rectángulo grande que se ve al entrar a cada una.</p>' + todoRow() + C.cats.map((c,i) => `<div class="row">${C.catimg[c] ? `<img class="th" src="${esc(C.catimg[c])}" alt="">` : '<div class="th">🖼️</div>'}<input class="grow" value="${esc(c)}" data-ren="${i}" maxlength="40" aria-label="Nombre de la categoría"><label class="btn">Imagen<input type="file" accept="image/*" data-cimg="${i}" hidden></label>${C.catimg[c] ? `<button class="btn" data-cimgdel="${i}">Quitar imagen</button>` : ''}<button class="btn" data-cdel="${i}">Eliminar</button></div>`).join('') + '<div class="row"><input class="grow" id="newCat" maxlength="40" placeholder="Nueva categoría"><button class="btn primary" data-cadd>Añadir</button></div>';
 }
 function shopHTML(){
-  const h = S.cfg.hero || {t:'Lo que ya no usas, es lo que alguien más busca.', d:'Compra y vende electrónica, ropa, cosas para el hogar y más. Publica en menos de un minuto y recibe ofertas hoy.'};
-  return `<h2>Textos de la portada</h2><label>Título<input id="hT" maxlength="90" value="${esc(h.t)}"></label><label>Descripción<textarea id="hD" rows="3" maxlength="220">${esc(h.d)}</textarea></label><button class="btn primary" data-hero>Guardar textos</button>
-  <h2 style="margin-top:28px">Código QR de pago</h2>${S.cfg.qr ? `<img class="qr" src="${esc(S.cfg.qr)}" alt="QR actual">` : '<p class="meta">Aún no has cargado un QR.</p>'}
+  return `<h2 style="margin-top:28px">Código QR de pago</h2>${S.cfg.qr ? `<img class="qr" src="${esc(S.cfg.qr)}" alt="QR actual">` : '<p class="meta">Aún no has cargado un QR.</p>'}
   <label>Subir imagen<input type="file" accept="image/*" id="qrF"></label><label>…o pegar una URL<input id="qrU" type="url" placeholder="https://…"></label>
-  <div class="acts"><button class="btn primary" data-qrurl>Usar URL</button>${S.cfg.qr ? '<button class="btn" data-qrdel>Quitar QR</button>' : ''}</div>`;
+  <div class="acts"><button class="btn primary" data-qrurl>Usar URL</button>${S.cfg.qr ? '<button class="btn" data-qrdel>Quitar QR</button>' : ''}</div>
+  <h2 style="margin-top:28px">Acceso de administrador</h2><p class="meta">Se guarda cifrado en la base de datos. Aquí puedes cambiar tu usuario y contraseña sin tocar el código.</p>
+  <label>Contraseña actual<input id="cPw" type="password" autocomplete="current-password"></label>
+  <label>Nuevo usuario<input id="nUser" maxlength="40" autocomplete="off"></label>
+  <label>Nueva contraseña (mínimo 8 caracteres)<input id="nPw" type="password" autocomplete="new-password"></label>
+  <button class="btn primary" data-creds>Cambiar acceso</button>`;
 }
 const ordHTML = o => '<h2>Pedidos recientes</h2>' + (o.length ? o.map(x => `<div class="row" style="align-items:flex-start"><div class="grow"><b>${esc(x.name)}</b> – ${esc(x.phone)}${x.email ? `<div class="meta">${esc(x.email)}</div>` : ''}<div class="meta">${new Date(x.time).toLocaleString('es-CO')}</div>${x.items.map(i => esc(i.qty + ' × ' + i.title)).join('<br>')}</div><b>${fmt(x.total)}</b></div>`).join('') : '<p class="meta">Aún no hay pedidos.</p>');
 
@@ -151,7 +157,7 @@ document.addEventListener('click', async e => {
     else if(d.del){ if(!sure(t)) return; await call('deleteProduct', {id:+d.del}); await load(); render(); toast('Producto eliminado'); }
     else if(d.rmimg !== undefined){ imgs.splice(+d.rmimg, 1); thumbs(); }
     else if(d.cadd !== undefined){
-      const n = $('#newCat').value.trim(); if(!n || C.cats.includes(n)) return toast('Escribe un nombre nuevo');
+      const n = $('#newCat').value.trim(); if(!n || C.cats.includes(n) || n.toLowerCase() === 'todo') return toast('Escribe un nombre nuevo ("Todo" ya existe)');
       C.cats.push(n); await saveCfg(); render(); toast('Categoría añadida');
     }
     else if(d.cdel !== undefined){
@@ -160,9 +166,10 @@ document.addEventListener('click', async e => {
       C.cats.splice(+d.cdel, 1); delete C.catimg[n]; await saveCfg(); render(); toast('Categoría eliminada');
     }
     else if(d.cimgdel !== undefined){ delete C.catimg[C.cats[+d.cimgdel]]; await saveCfg(); render(); }
-    else if(d.hero !== undefined){ const tt_ = $('#hT').value.trim(); if(!tt_) return toast('El título no puede estar vacío'); C.hero = {t:tt_, d:$('#hD').value.trim()}; await saveCfg(); toast('Textos guardados'); }
+    else if(d.cimgdelname){ delete C.catimg[d.cimgdelname]; await saveCfg(); render(); }
     else if(d.qrurl !== undefined){ C.qr = $('#qrU').value.trim(); await saveCfg(); render(); toast('QR guardado'); }
     else if(d.qrdel !== undefined){ C.qr = ''; await saveCfg(); render(); toast('QR eliminado'); }
+    else if(d.creds !== undefined){ await call('changeCredentials', {current:$('#cPw').value, user:$('#nUser').value, password:$('#nPw').value}); render(); toast('Acceso actualizado. Úsalo la próxima vez que entres.'); }
   }catch(err){ toast(err.message); }
 });
 document.addEventListener('change', async e => {
@@ -173,13 +180,15 @@ document.addEventListener('change', async e => {
       await saveProd(p); toast('Stock actualizado');
     }else if(d.ren !== undefined){
       const i = +d.ren, old = C.cats[i], n = el.value.trim();
-      if(!n || C.cats.includes(n)){ el.value = old; return toast('Nombre no válido o repetido'); }
+      if(!n || C.cats.includes(n) || n.toLowerCase() === 'todo'){ el.value = old; return toast('Nombre no válido o repetido'); }
       C.cats[i] = n; if(C.catimg[old]){ C.catimg[n] = C.catimg[old]; delete C.catimg[old]; }
       for(const p of S.products.filter(p => p.cat === old)){ p.cat = n; await saveProd(p); }
       await saveCfg(); toast('Categoría renombrada');
     }else if(d.cimg !== undefined && el.files[0]){
       const n = C.cats[+d.cimg];
-      readImage(el.files[0], async img => { C.catimg[n] = img; try{ await saveCfg(); render(); toast('Imagen guardada'); }catch(err){ toast(err.message); } }, 360);
+      readImage(el.files[0], async img => { C.catimg[n] = img; try{ await saveCfg(); render(); toast('Imagen guardada'); }catch(err){ toast(err.message); } }, 640);
+    }else if(d.cimgname !== undefined && el.files[0]){
+      readImage(el.files[0], async img => { C.catimg[d.cimgname] = img; try{ await saveCfg(); render(); toast('Imagen guardada'); }catch(err){ toast(err.message); } }, 640);
     }else if(el.id === 'qrF' && el.files[0]){
       readImage(el.files[0], async img => { C.qr = img; try{ await saveCfg(); render(); toast('QR guardado'); }catch(err){ toast(err.message); } }, 640);
     }else if(el.id === 'pimg'){
