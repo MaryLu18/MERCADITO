@@ -201,7 +201,11 @@ input,textarea{padding:11px 13px;border:1px solid var(--line);border-radius:12px
 const FREE_SHIP = 200000, SHIP = 12000;
 // Categorías por defecto (el administrador puede cambiarlas, añadir más y poner su imagen desde el portal).
 // "Todo" no es una categoría real: es el botón que muestra los artículos de todas.
-let CATS = ['Resistencias','Diodos','LEDs','Transistores'], CATIMG = {}, qrImg = '';
+let CATS = ['Resistencias', 'Diodos', 'LEDs', 'Transistores', 'Capacitores'];
+let CATIMG = {
+  'Capacitores': 'capacitor.jpeg' 
+};
+let qrImg = '';
 const SLOGAN = 'El voltaje que necesitan tus proyectos';
 // Catálogo de ejemplo: solo se usa si la página se abre sin servidor (modo demostración)
 const SEED = [
