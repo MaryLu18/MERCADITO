@@ -206,11 +206,14 @@ input,textarea{padding:11px 13px;border:1px solid var(--line);border-radius:12px
 
 <script>
 /* ========== A. DATOS Y UTILIDADES ========== */
-// ⚠️ PON AQUÍ TU NÚMERO DE WHATSAPP: solo dígitos, con indicativo de país, sin "+" ni espacios.
-// Colombia = 57 + tu número. Ejemplo: '573001234567'. Si lo dejas vacío, WhatsApp pedirá elegir el contacto.
+// ===== TU WHATSAPP =====
+// Opción recomendada: tu número solo con dígitos e indicativo de país, sin "+" ni espacios (Colombia = 57). Ej.: '573001234567'.
+// Con el número, el chat se abre directo contigo y el mensaje aparece ya escrito.
 const WHATSAPP_NUMBER = '';
+// Si dejas el número vacío se usa este enlace de tu chat. Abre tu chat directo, pero WhatsApp no siempre escribe el mensaje solo;
+// por eso, en ese caso, la tienda copia el mensaje al portapapeles para que el cliente lo pegue.
+const WHATSAPP_LINK = 'https://wa.me/qr/7HHKORUO3JXEO1';
 
-const FREE_SHIP = 200000, SHIP = 12000;
 // Categorías por defecto (el administrador puede cambiarlas, añadir más y poner su imagen desde el portal).
 // "Todo" no es una categoría real: es el botón que muestra los artículos de todas.
 let CATS = ['Resistencias','Diodos','LEDs','Transistores'], CATIMG = {}, qrImg = '';
@@ -345,11 +348,11 @@ function reconcileCart(){
 window.addEventListener('storage', e => { if(e.key === 'mc_cart'){ try{ state.cart = JSON.parse(e.newValue || '{}'); }catch(x){ state.cart = {}; } renderCart(); } });
 function cartTotal(){
   const sub = Object.keys(state.cart).map(Number).filter(byId).reduce((s,id) => s + byId(id).price*state.cart[id], 0);
-  return sub + (sub && sub < FREE_SHIP ? SHIP : 0);
+  return sub;
 }
 function renderCart(){
   const ids = Object.keys(state.cart).map(Number).filter(byId);
-  const sub = ids.reduce((s,id) => s + byId(id).price*state.cart[id], 0), ship = sub === 0 || sub >= FREE_SHIP ? 0 : SHIP;
+  const sub = ids.reduce((s,id) => s + byId(id).price*state.cart[id], 0);
   const n = ids.reduce((s,id) => s + state.cart[id], 0);
   $('#count').textContent = n; $('#count').hidden = !n;
   $('#items').innerHTML = ids.length ? ids.map(id => { const p = byId(id); return `
@@ -359,10 +362,7 @@ function renderCart(){
       <div class="qty"><button data-dec="${id}" aria-label="Restar uno">−</button><span>${state.cart[id]}</span><button data-inc="${id}" aria-label="Sumar uno">＋</button></div>
     </div>`; }).join('') : '<p class="empty" style="padding:40px 0">Tu carrito está vacío. Añade un artículo para empezar.</p>';
   $('#sum').innerHTML = ids.length ? `
-    <div><span>Subtotal</span><span>${fmt(sub)}</span></div>
-    <div><span>Envío</span><span>${ship ? fmt(ship) : 'Gratis'}</span></div>
-    ${ship ? `<div class="meta"><span>Envío gratis desde ${fmt(FREE_SHIP)}</span></div>` : ''}
-    <div class="tot"><span>Total a pagar</span><span>${fmt(sub + ship)}</span></div>
+    <div class="tot"><span>Total a pagar</span><span>${fmt(sub)}</span></div>
     <button class="btn primary block" id="checkout">Pagar ahora</button>` : '';
 }
 function toggleCart(open){ $('#cart').classList.toggle('open', open); $('#veil').classList.toggle('on', open); }
@@ -379,10 +379,13 @@ function openPay(){
   $('#dlgPay').showModal();
 }
 // Arma el mensaje de WhatsApp con el texto exacto del pedido
-function whatsappUrl(items, name, phone){
+function whatsappMsg(items, name, phone){
   const lista = items.map(it => { const p = byId(it.id); return '- ' + (p ? p.title : 'Artículo') + ' (x' + it.qty + ')'; }).join('\n');
-  const msg = 'Acabo de hacer un pedido desde la página de mercadito.\nLos artículos son los siguientes:\n' + lista + '\n' + name + '\n' + phone;
-  return 'https://wa.me/' + String(WHATSAPP_NUMBER).replace(/\D/g, '') + '?text=' + encodeURIComponent(msg);
+  return 'Acabo de hacer un pedido desde la página de mercadito.\nLos artículos son los siguientes:\n' + lista + '\n' + name + '\n' + phone;
+}
+function whatsappUrl(msg){
+  const num = String(WHATSAPP_NUMBER).replace(/\D/g, '');
+  return (num ? 'https://wa.me/' + num : WHATSAPP_LINK) + '?text=' + encodeURIComponent(msg);
 }
 let sending = false;
 async function confirmOrder(){
@@ -391,7 +394,8 @@ async function confirmOrder(){
   if(!name || !phone) return toast('Escribe tu nombre y teléfono para enviar el pedido');
   const items = Object.keys(state.cart).map(k => ({id:+k, qty:state.cart[k]}));
   if(!items.length) return toast('Tu carrito está vacío');
-  const url = whatsappUrl(items, name, phone);   // se arma ANTES de vaciar el carrito
+  const msg = whatsappMsg(items, name, phone), url = whatsappUrl(msg), conNumero = !!String(WHATSAPP_NUMBER).replace(/\D/g, '');   // se arma ANTES de vaciar el carrito
+  if(!conNumero){ try{ navigator.clipboard.writeText(msg); }catch(e){} }   // respaldo: el mensaje queda copiado por si WhatsApp no lo escribe solo
   const wa = window.open('', '_blank');          // se abre en el mismo clic para que el navegador no la bloquee
   sending = true; $('#paid').disabled = true;
   try{
@@ -404,7 +408,7 @@ async function confirmOrder(){
   state.cart = {}; store.set('mc_cart', state.cart);       // vacía el carrito
   $('#dlgPay').close(); toggleCart(false);                  // cierra la ventana de pago
   if(wa) wa.location.href = url; else location.href = url;  // abre WhatsApp
-  toast('Pedido enviado. Se abrió WhatsApp para avisar al vendedor.');
+  toast(conNumero ? 'Pedido enviado. Se abrió WhatsApp para avisar al vendedor.' : 'Pedido enviado. Si WhatsApp no muestra el mensaje escrito, pégalo en el chat (ya está copiado).');
   sending = false; $('#paid').disabled = false;
   if(online) await loadShop(); else render();
 }

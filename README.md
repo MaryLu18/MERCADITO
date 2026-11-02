@@ -68,4 +68,7 @@ Redis no usa tablas: la aplicación crea sola estas claves al usarse, no tienes 
 - Las imágenes se reducen y se guardan en la base de datos; el conjunto de imágenes de categorías y QR no debe pasar de unos 900 KB. Si el portal avisa que pesan demasiado, quita alguna.
 
 ## WhatsApp del pedido
-En `public/index.html`, busca `WHATSAPP_NUMBER` (al inicio del script) y pon tu número solo con dígitos y con indicativo de país, por ejemplo `'573001234567'`. Al confirmar el pedido, la tienda cierra la ventana de pago, vacía el carrito y abre WhatsApp con el mensaje: artículos con cantidades, nombre y teléfono del cliente.
+En `public/index.html`, al inicio del script, está el bloque **TU WHATSAPP**:
+- `WHATSAPP_NUMBER`: tu número con indicativo de país y solo dígitos (ej. `'573001234567'`). **Es lo recomendado**: abre tu chat directo y el mensaje aparece ya escrito.
+- `WHATSAPP_LINK`: tu enlace `wa.me/qr/...`. Se usa si el número está vacío; abre tu chat, pero WhatsApp puede no escribir el mensaje, así que la tienda lo copia al portapapeles.
+Al pulsar *Ya realicé el pago* se registra el pedido, se cierra la ventana de pago, se vacía el carrito y se abre WhatsApp con: artículos y cantidades, nombre y teléfono.
