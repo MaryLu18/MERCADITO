@@ -29,6 +29,7 @@ h2{margin:0 0 12px;font-size:1.3rem}
 label{display:grid;gap:4px;font-weight:500;font-size:.92rem;margin-bottom:10px}
 input,textarea,select{padding:9px 12px;border:1px solid var(--line);border-radius:10px;background:var(--bg);width:100%}
 .row input[type=number]{width:84px}.row label{margin:0}
+.sbox{display:block;margin-bottom:14px}
 .qr{width:200px;max-width:100%;background:#fff;border:1px solid var(--line);border-radius:12px;margin-bottom:10px}
 .acts{display:flex;gap:8px;flex-wrap:wrap}
 dialog{border:0;border-radius:18px;padding:0;width:min(560px,calc(100% - 24px));background:var(--surface);color:var(--ink);max-height:calc(100% - 24px)}
@@ -80,7 +81,7 @@ async function call(action, extra){
 
 /* ========== Datos ========== */
 const S = {products:[], cfg:{cats:['Resistencias','Diodos','LEDs','Transistores'], catimg:{}, hero:null, qr:''}};
-let tab = 'prod', imgs = [];
+let tab = 'prod', imgs = [], pq = '';   // pq = texto de la búsqueda de productos
 async function load(){
   const r = await fetch('/api/shop', {cache:'no-store'}), j = await r.json();
   if(!r.ok) throw new Error(j.error);
@@ -93,9 +94,21 @@ const saveProd = p => call('saveProduct', {product:p});
 /* ========== Vistas ========== */
 const TABS = {prod:'Productos', cat:'Categorías', shop:'Tienda y QR', ord:'Pedidos'};
 const th = p => { const s = (p.imgs && p.imgs[0]) || p.img; return s ? `<img class="th" src="${esc(s)}" alt="">` : '<div class="th">📦</div>'; };
+// Lista de productos filtrada por la búsqueda (nombre, categoría o descripción)
+function prodList(){
+  const q = pq.trim().toLowerCase();
+  return S.products.filter(p => !q || (p.title + ' ' + (p.cat || '') + ' ' + (p.desc || '')).toLowerCase().includes(q));
+}
+function prodCount(){ const n = prodList().length; return n === S.products.length ? String(n) : n + ' de ' + S.products.length; }
+function prodRows(){
+  const list = prodList();
+  if(!list.length) return '<p class="meta">' + (S.products.length ? 'Ningún producto coincide con tu búsqueda.' : 'Aún no hay productos. Crea el primero con el botón de arriba.') + '</p>';
+  return list.map(p => `<div class="row">${th(p)}<div class="grow"><b>${esc(p.title)}</b><div class="meta">${esc(p.cat || 'Sin categoría')} – ${fmt(p.price)}</div></div><label class="meta">Stock<input type="number" min="0" value="${p.stock}" data-stock="${p.id}"></label><button class="btn" data-edit="${p.id}">Editar</button><button class="btn" data-del="${p.id}">Eliminar</button></div>`).join('');
+}
 function prodHTML(){
-  return `<div class="bar2"><h2>Productos (${S.products.length})</h2><button class="btn primary" data-new>＋ Nuevo producto</button></div>` +
-  (S.products.length ? S.products.map(p => `<div class="row">${th(p)}<div class="grow"><b>${esc(p.title)}</b><div class="meta">${esc(p.cat || 'Sin categoría')} – ${fmt(p.price)}</div></div><label class="meta">Stock<input type="number" min="0" value="${p.stock}" data-stock="${p.id}"></label><button class="btn" data-edit="${p.id}">Editar</button><button class="btn" data-del="${p.id}">Eliminar</button></div>`).join('') : '<p class="meta">Aún no hay productos. Crea el primero con el botón de arriba.</p>');
+  return `<div class="bar2"><h2>Productos (<span id="pcount">${prodCount()}</span>)</h2><button class="btn primary" data-new>＋ Nuevo producto</button></div>
+  <label class="sbox"><input id="pq" type="search" placeholder="🔍 Buscar por nombre, categoría o descripción…" value="${esc(pq)}" aria-label="Buscar productos" autocomplete="off"></label>
+  <div id="plist">${prodRows()}</div>`;
 }
 function todoRow(){   // "Todo" siempre existe: solo se puede cambiar su imagen
   const C = S.cfg;
@@ -198,6 +211,10 @@ document.addEventListener('change', async e => {
       el.value = '';
     }
   }catch(err){ toast(err.message); }
+});
+document.addEventListener('input', e => {   // búsqueda en vivo: solo se redibuja la lista, así el cursor no se pierde
+  if(e.target.id !== 'pq') return;
+  pq = e.target.value; $('#plist').innerHTML = prodRows(); $('#pcount').textContent = prodCount();
 });
 document.addEventListener('submit', async e => {
   if(e.target.id !== 'pf') return; e.preventDefault();
