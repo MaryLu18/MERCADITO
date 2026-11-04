@@ -20,7 +20,8 @@ function cleanConfig(c = {}) {
   for (const k of Object.keys(c.catimg || {})) if ((cats.includes(k) || k === 'Todo') && typeof c.catimg[k] === 'string' && c.catimg[k].length < 200000) catimg[k] = c.catimg[k];
   const hero = c.hero && c.hero.t ? { t: str(c.hero.t, 90), d: str(c.hero.d, 220) } : null;
   const qr = typeof c.qr === 'string' && c.qr.length < 600000 ? c.qr : '';
-  return { cats, catimg, hero, qr };
+  const wa = String(c.wa || '').replace(/\D/g, '').slice(0, 15);
+  return { cats, catimg, hero, qr, wa };
 }
 
 module.exports = async (req, res) => {

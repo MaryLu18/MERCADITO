@@ -68,7 +68,11 @@ Redis no usa tablas: la aplicación crea sola estas claves al usarse, no tienes 
 - Las imágenes se reducen y se guardan en la base de datos; el conjunto de imágenes de categorías y QR no debe pasar de unos 900 KB. Si el portal avisa que pesan demasiado, quita alguna.
 
 ## WhatsApp del pedido
-En `public/index.html`, al inicio del script, está el bloque **TU WHATSAPP**:
+La forma más fácil: en el portal, **Tienda y QR → WhatsApp del vendedor**, escribe tu número (con indicativo, solo dígitos) y guarda. Ese número tiene prioridad. Alternativa en código, `public/index.html`, bloque **TU WHATSAPP** al inicio del script:
 - `WHATSAPP_NUMBER`: tu número con indicativo de país y solo dígitos (ej. `'573001234567'`). **Es lo recomendado**: abre tu chat directo y el mensaje aparece ya escrito.
 - `WHATSAPP_LINK`: tu enlace `wa.me/qr/...`. Se usa si el número está vacío; abre tu chat, pero WhatsApp puede no escribir el mensaje, así que la tienda lo copia al portapapeles.
 Al pulsar *Ya realicé el pago* se registra el pedido, se cierra la ventana de pago, se vacía el carrito y se abre WhatsApp con: artículos y cantidades, nombre y teléfono.
+
+## Logo, favicon e imagen del capacitor
+- `public/logo.svg` (y `logo.png`) es el logo: un collage de los componentes (resistencia, LED, diodo, transistor y capacitor). Se usa en el encabezado, el favicon y el portal.
+- `public/img/capacitores.svg` es la ilustración por defecto de cualquier categoría cuyo nombre contenga "capacit". Si subes una foto desde el portal, esa tiene prioridad.

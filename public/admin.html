@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="robots" content="noindex, nofollow">
 <title>Panel</title>
+<link rel="icon" type="image/svg+xml" href="logo.svg">
 <style>
 :root{color-scheme:dark;--bg:#1b1d24;--surface:#23262f;--ink:#eef0f7;--muted:#9aa0b4;--line:rgba(255,255,255,.08);--brand:#6f5cf2;--brand-ink:#fff;--soft:#2b2e3a;--danger:#ff7a4d}
 *{box-sizing:border-box}
@@ -45,7 +46,7 @@ dialog::backdrop{background:rgba(8,16,12,.55)}
 </style>
 </head>
 <body hidden>
-<header class="top"><b>Panel de administración</b><span><a class="btn" href="/">Ver tienda</a><button class="btn" id="out">Salir</button></span></header>
+<header class="top"><b style="display:flex;align-items:center;gap:10px"><img src="logo.svg" alt="" width="32" height="32" style="border-radius:9px">Panel de administración</b><span><a class="btn" href="/">Ver tienda</a><button class="btn" id="out">Salir</button></span></header>
 <nav id="tabs" aria-label="Secciones"></nav>
 <main class="wrap" id="view"></main>
 <dialog id="dlg"></dialog>
@@ -80,7 +81,7 @@ async function call(action, extra){
 }
 
 /* ========== Datos ========== */
-const S = {products:[], cfg:{cats:['Resistencias','Diodos','LEDs','Transistores'], catimg:{}, hero:null, qr:''}};
+const S = {products:[], cfg:{cats:['Resistencias','Diodos','LEDs','Transistores','Capacitores'], catimg:{}, hero:null, qr:''}};
 let tab = 'prod', imgs = [], pq = '';   // pq = texto de la búsqueda de productos
 async function load(){
   const r = await fetch('/api/shop', {cache:'no-store'}), j = await r.json();
@@ -119,7 +120,9 @@ function catHTML(){
   return '<h2>Categorías</h2><p class="meta">Estas categorías forman el menú de la tienda. La imagen es el rectángulo grande que se ve al entrar a cada una.</p>' + todoRow() + C.cats.map((c,i) => `<div class="row">${C.catimg[c] ? `<img class="th" src="${esc(C.catimg[c])}" alt="">` : '<div class="th">🖼️</div>'}<input class="grow" value="${esc(c)}" data-ren="${i}" maxlength="40" aria-label="Nombre de la categoría"><label class="btn">Imagen<input type="file" accept="image/*" data-cimg="${i}" hidden></label>${C.catimg[c] ? `<button class="btn" data-cimgdel="${i}">Quitar imagen</button>` : ''}<button class="btn" data-cdel="${i}">Eliminar</button></div>`).join('') + '<div class="row"><input class="grow" id="newCat" maxlength="40" placeholder="Nueva categoría"><button class="btn primary" data-cadd>Añadir</button></div>';
 }
 function shopHTML(){
-  return `<h2 style="margin-top:28px">Código QR de pago</h2>${S.cfg.qr ? `<img class="qr" src="${esc(S.cfg.qr)}" alt="QR actual">` : '<p class="meta">Aún no has cargado un QR.</p>'}
+  return `<h2>WhatsApp del vendedor</h2><p class="meta">Número al que llegan los pedidos, con indicativo de país y solo dígitos (Colombia: 57 + tu número). Con él, el chat se abre directo contigo y el mensaje aparece ya escrito.</p>
+  <label>Número de WhatsApp<input id="waNum" inputmode="numeric" placeholder="573001234567" value="${esc(S.cfg.wa || '')}"></label><button class="btn primary" data-wa>Guardar número</button>
+  <h2 style="margin-top:28px">Código QR de pago</h2>${S.cfg.qr ? `<img class="qr" src="${esc(S.cfg.qr)}" alt="QR actual">` : '<p class="meta">Aún no has cargado un QR.</p>'}
   <label>Subir imagen<input type="file" accept="image/*" id="qrF"></label><label>…o pegar una URL<input id="qrU" type="url" placeholder="https://…"></label>
   <div class="acts"><button class="btn primary" data-qrurl>Usar URL</button>${S.cfg.qr ? '<button class="btn" data-qrdel>Quitar QR</button>' : ''}</div>
   <h2 style="margin-top:28px">Acceso de administrador</h2><p class="meta">Se guarda cifrado en la base de datos. Aquí puedes cambiar tu usuario y contraseña sin tocar el código.</p>
@@ -182,6 +185,11 @@ document.addEventListener('click', async e => {
     else if(d.cimgdelname){ delete C.catimg[d.cimgdelname]; await saveCfg(); render(); }
     else if(d.qrurl !== undefined){ C.qr = $('#qrU').value.trim(); await saveCfg(); render(); toast('QR guardado'); }
     else if(d.qrdel !== undefined){ C.qr = ''; await saveCfg(); render(); toast('QR eliminado'); }
+    else if(d.wa !== undefined){
+      const v = $('#waNum').value.replace(/\D/g, '');
+      if(v && (v.length < 10 || v.length > 15)) return toast('Revisa el número: incluye el indicativo de país (ej. 573001234567)');
+      C.wa = v; await saveCfg(); toast(v ? 'Número guardado' : 'Número eliminado');
+    }
     else if(d.creds !== undefined){ await call('changeCredentials', {current:$('#cPw').value, user:$('#nUser').value, password:$('#nPw').value}); render(); toast('Acceso actualizado. Úsalo la próxima vez que entres.'); }
   }catch(err){ toast(err.message); }
 });

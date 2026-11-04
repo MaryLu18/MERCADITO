@@ -1,0 +1,28 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" width="128" height="128">
+  <defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#3b2f9e"/><stop offset="1" stop-color="#7a66f5"/></linearGradient></defs>
+  <rect width="128" height="128" rx="30" fill="url(#g)"/>
+  <circle cx="112" cy="14" r="34" fill="#fff" opacity=".07"/><circle cx="10" cy="120" r="38" fill="#fff" opacity=".07"/>
+  <!-- resistencia -->
+  <path d="M12 28H24M60 28H72" stroke="#c9ccd8" stroke-width="2.6" stroke-linecap="round"/>
+  <rect x="22" y="19" width="40" height="18" rx="9" fill="#e3c08d"/>
+  <rect x="30" y="19" width="4" height="18" fill="#7a3b12"/><rect x="38" y="19" width="4" height="18" fill="#111"/><rect x="46" y="19" width="4" height="18" fill="#d63a2f"/><rect x="54" y="19" width="3" height="18" fill="#d9b13a"/>
+  <!-- LED -->
+  <circle cx="100" cy="38" r="22" fill="#ff4d6d" opacity=".22"/>
+  <path d="M89 48V34a11 11 0 0 1 22 0V48Z" fill="#ff4d6d"/><rect x="86" y="48" width="28" height="4" rx="2" fill="#ff7a93"/>
+  <path d="M95 52V66M105 52V60" stroke="#c9ccd8" stroke-width="2.6" stroke-linecap="round"/>
+  <ellipse cx="95" cy="31" rx="2.5" ry="5" fill="#fff" opacity=".45"/>
+  <!-- diodo -->
+  <path d="M10 62H20M56 62H68" stroke="#c9ccd8" stroke-width="2.6" stroke-linecap="round"/>
+  <rect x="20" y="54" width="36" height="16" rx="4" fill="#23252d" stroke="#8f95a8" stroke-width="1.6"/><rect x="44" y="54" width="6" height="16" fill="#d7dae6"/>
+  <!-- transistor -->
+  <path d="M91 100V114M100 100V114M109 100V114" stroke="#c9ccd8" stroke-width="2.4" stroke-linecap="round"/>
+  <path d="M84 100V84a16 16 0 0 1 32 0V100Z" fill="#1c1e25" stroke="#8f95a8" stroke-width="1.6"/><path d="M89 84a11 11 0 0 1 22 0" stroke="#3a3e4d" stroke-width="1.5" fill="none"/>
+  <!-- capacitor -->
+  <g transform="translate(0 3) rotate(-25 48 98)">
+    <path d="M42 108V117M54 108V120" stroke="#c9ccd8" stroke-width="2.4" stroke-linecap="round"/>
+    <rect x="36" y="74" width="24" height="34" rx="4" fill="#1c1e25" stroke="#8f95a8" stroke-width="1.6"/>
+    <rect x="36" y="74" width="24" height="4" rx="2" fill="#3a3e4d"/>
+    <rect x="38.5" y="81" width="6" height="24" rx="2" fill="#9fb0c8"/>
+    <rect x="40" y="85" width="3" height="1.2" fill="#1c1e25"/><rect x="40" y="91" width="3" height="1.2" fill="#1c1e25"/><rect x="40" y="97" width="3" height="1.2" fill="#1c1e25"/>
+  </g>
+</svg>
